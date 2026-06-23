@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import io
 
-# --- 1. FUNGSI TERBILANG ---
+# --- FUNGSI TERBILANG ---
 def terbilang(n):
     angka = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"]
     n = int(n)
@@ -18,72 +18,50 @@ def terbilang(n):
     elif n < 1000000000000: return terbilang(n // 1000000000) + " Miliar " + terbilang(n % 1000000000)
     else: return "Angka Terlalu Besar"
 
-# --- 2. SETUP HALAMAN ---
-st.set_page_config(page_title="Kalkulator RAB & SMKK", page_icon="🏗️", layout="wide")
-st.title("🏗️ Sistem Estimator RAB Pro (Cipta Karya 2025)")
+st.set_page_config(page_title="RAB & Blueprint Manager", page_icon="🏗️", layout="wide")
+st.title("🏗️ Sistem Estimator RAB Terpadu")
 
-# --- 3. MEMUAT DATABASE ---
+# --- LOAD DATABASE EXCEL MASTER ---
 @st.cache_data
 def load_data():
     try:
-        # Load data dari master yang baru saja kita kerjakan
-        df_ahsp = pd.read_excel("RAB_Analisa_Lengkap_V4.xlsx", sheet_name="3_Daftar_AHSP_Master", skiprows=1)
-        df_ahsp = df_ahsp.dropna(subset=['Kode AHSP', 'Uraian Pekerjaan'])
-        df_ahsp['Kode AHSP'] = df_ahsp['Kode AHSP'].astype(str).str.strip()
-        df_ahsp['Pilihan'] = df_ahsp['Kode AHSP'] + " - " + df_ahsp['Uraian Pekerjaan'].astype(str)
-        return df_ahsp
+        # Load AHSP
+        df = pd.read_excel("RAB_Manual_Excel_Clean_Final.xlsx", sheet_name="3_Daftar_AHSP", skiprows=1)
+        df = df.dropna(subset=['Kode AHSP', 'Uraian Pekerjaan'])
+        df['Kode AHSP'] = df['Kode AHSP'].astype(str).str.strip()
+        df['Pilihan'] = df['Kode AHSP'] + " - " + df['Uraian Pekerjaan'].astype(str)
+        return df
     except:
-        st.error("File RAB_Analisa_Lengkap_V4.xlsx tidak ditemukan!")
         return pd.DataFrame()
 
 df_ahsp = load_data()
 
-# --- 4. SESSION STATE (Keranjang Belanja) ---
+# --- STATE KERANJANG ---
 if 'rab_data' not in st.session_state: st.session_state.rab_data = []
 
-# --- 5. SIDEBAR: PENGATURAN UMUM ---
-with st.sidebar:
-    st.header("⚙️ Pengaturan Proyek")
-    nama_proyek = st.text_input("Nama Proyek:", "Pembangunan Fasilitas X")
-    
-    st.subheader("Skema K3 (SMKK)")
-    jenis_proyek = st.radio("Sistem Keselamatan:", [
-        "Proyek Personal (Tanpa K3)", 
-        "Proyek Swasta / Pemerintah", 
-        "Proyek Tambang (Ekstra Ketat)"
-    ])
-    
-def hitung_smkk(total_konst, jenis):
-    if "Personal" in jenis: return 0
-    persen = 0.05 if "Tambang" in jenis else 0.02
-    return total_konst * persen
+# --- TAMPILAN TABS ---
+tab1, tab2, tab3, tab4 = st.tabs(["📝 Pembuatan RAB", "📑 Analisa Alat", "📐 Gambar Blueprint", "🖨️ Summary & Print"])
 
-# --- 6. TAMPILAN TABS ---
-t1, t2, t3 = st.tabs(["➕ Input RAB (Manual Volume)", "🚜 Analisa Harga Alat", "🖨️ Print & Rangkuman"])
-
-# TAB 1: INPUT MANUAL (Ganti metode Auto dengan Manual)
-with t1:
+# TAB 1: PEMBUATAN RAB
+with tab1:
     st.markdown("### Cari dan Tambahkan Pekerjaan ke RAB")
-    
     if not df_ahsp.empty:
-        # Form Pencarian
         with st.form("tambah_item"):
-            col_search, col_vol, col_btn = st.columns([3, 1, 1])
-            pilihan = col_search.selectbox("Cari AHSP Cipta Karya:", df_ahsp['Pilihan'].tolist())
-            volume = col_vol.number_input("Input Volume:", min_value=0.01, value=1.0, step=0.1)
-            submit = col_btn.form_submit_button("Tambahkan ke RAB")
+            col1, col2, col3 = st.columns([3, 1, 1])
+            pilihan = col1.selectbox("Cari Pekerjaan (Bisa Ketik):", df_ahsp['Pilihan'].tolist())
+            volume = col2.number_input("Volume (M/M2/M3):", min_value=0.01, value=1.0, step=0.1)
+            submit = col3.form_submit_button("➕ Tambahkan")
             
             if submit:
                 item = df_ahsp[df_ahsp['Pilihan'] == pilihan].iloc[0]
                 st.session_state.rab_data.append({
-                    "Kode": item['Kode AHSP'], "Pekerjaan": item['Uraian Pekerjaan'],
-                    "Sat": item['Satuan'], "Volume": volume,
-                    "Upah/Sat": float(item['Upah (Rp)']) if pd.notna(item['Upah (Rp)']) else 0,
-                    "Bahan/Sat": float(item['Bahan (Rp)']) if pd.notna(item['Bahan (Rp)']) else 0,
-                    "Alat/Sat": float(item['Alat (Rp)']) if pd.notna(item['Alat (Rp)']) else 0,
-                    "Harga/Sat": float(item['Total Harga (Rp)']) if pd.notna(item['Total Harga (Rp)']) else 0
+                    "Kode": item['Kode AHSP'], 
+                    "Pekerjaan": item['Uraian Pekerjaan'],
+                    "Sat": item['Satuan'], 
+                    "Volume": volume,
+                    "Harga/Sat": float(item['Harga Satuan Total (Rp)'])
                 })
-                st.success(f"Berhasil ditambahkan: {item['Uraian Pekerjaan']}")
+                st.success(f"Masuk keranjang: {item['Uraian Pekerjaan']}")
 
     st.divider()
     st.markdown("### 📋 Daftar Pekerjaan RAB Anda")
@@ -94,7 +72,8 @@ with t1:
             column_config={
                 "Kode": st.column_config.TextColumn(disabled=True),
                 "Pekerjaan": st.column_config.TextColumn(disabled=True),
-                "Volume": st.column_config.NumberColumn("Volume (Bisa Edit) ▼", format="%.2f"),
+                "Sat": st.column_config.TextColumn(disabled=True),
+                "Volume": st.column_config.NumberColumn("Volume (Edit) ▼", format="%.2f"),
                 "Harga/Sat": st.column_config.NumberColumn(format="Rp %.0f", disabled=True),
             },
             hide_index=True, use_container_width=True
@@ -104,71 +83,83 @@ with t1:
         if st.button("Kosongkan RAB"):
             st.session_state.rab_data = []
             st.rerun()
+    else:
+        st.info("RAB masih kosong.")
 
 # TAB 2: ANALISA ALAT
-with t2:
-    st.subheader("💡 Kalkulator Sewa Alat Berat (Penyusutan + Opr)")
+with tab2:
+    st.subheader("💡 Kalkulator Analisa Sewa Alat Berat (Bina Marga)")
+    st.caption("Hitung biaya operasi dan penyusutan alat berat untuk dimasukkan ke penawaran proyek.")
     c1, c2 = st.columns(2)
+    nama_alat = c1.text_input("Nama Peralatan:", "Excavator")
     harga_alat = c1.number_input("Harga Beli / Pokok Alat (Rp):", value=150000000)
     jam_thn = c1.number_input("Jam Operasional / Tahun:", value=2000)
+    
     bbm_jam = c2.number_input("Konsumsi BBM (Liter/Jam):", value=5.0)
     harga_bbm = c2.number_input("Harga BBM (Rp/Liter):", value=12000)
     
+    # Hitungan Bina Marga
     penyusutan = ((harga_alat - (0.1 * harga_alat)) * 0.15) / jam_thn
     biaya_opr = (bbm_jam * harga_bbm) + (0.125 * harga_alat / jam_thn)
     sewa_jam = penyusutan + biaya_opr
     
-    st.success(f"**Total Harga Sewa Per Jam: Rp {sewa_jam:,.0f}**")
-    st.caption(f"Rincian: Penyusutan (Rp {penyusutan:,.0f}) + Operasional (Rp {biaya_opr:,.0f})")
+    st.success(f"**Total Sewa {nama_alat} Per Jam: Rp {sewa_jam:,.0f}**")
+    st.markdown(f"> *Rincian: Penyusutan (Rp {penyusutan:,.0f}) + Operasi (Rp {biaya_opr:,.0f})*")
 
-# TAB 3: SUMMARY & PRINT
-with t3:
+# TAB 3: GAMBAR BLUEPRINT
+with tab3:
+    st.subheader("📐 Arsip Gambar Kerja & Blueprint")
+    st.markdown("Pilih referensi gambar struktur dari file yang telah diunggah.")
+    pilihan_pdf = st.radio("Pilih Gambar Bangunan:", ["Bapak Rahmad Hidayad (2 Lantai)", "Andi Mangkona (Konsep 12x15m)"])
+    
+    if "Rahmad" in pilihan_pdf:
+        st.info("Denah dan Rencana Pondasi untuk Rumah Tinggal 2 Lantai (Bapak Rahmad Hidayad)")
+        st.markdown("")
+        st.markdown("")
+    else:
+        st.info("Konsep Rumah 2 Lantai 12x15m (Bapak Andi Mangkona)")
+        st.markdown("")
+        st.markdown("")
+        
+    st.caption("Gunakan referensi ukuran pada gambar ini untuk mengisi manual kolom 'Volume' di Tab 1 (RAB).")
+
+# TAB 4: SUMMARY & PRINT
+with tab4:
     if len(st.session_state.rab_data) > 0:
         df_fin = pd.DataFrame(st.session_state.rab_data)
         df_fin['Jumlah Harga'] = df_fin['Volume'] * df_fin['Harga/Sat']
         total_konstruksi = df_fin['Jumlah Harga'].sum()
         
-        biaya_smkk = hitung_smkk(total_konstruksi, jenis_proyek)
+        st.markdown("### 1. Masukkan Biaya Keselamatan (SMKK)")
+        biaya_smkk = st.number_input("Total Biaya SMKK / K3 (Rp):", min_value=0, value=0, step=100000)
         grand_total = total_konstruksi + biaya_smkk
         
-        st.markdown(f"### 📊 Rangkuman RAB: {nama_proyek}")
+        st.markdown("### 2. Rekapitulasi Akhir")
         c1, c2, c3 = st.columns(3)
-        c1.metric("Biaya Konstruksi Murni", f"Rp {total_konstruksi:,.0f}")
-        c2.metric(f"Biaya SMKK ({jenis_proyek})", f"Rp {biaya_smkk:,.0f}")
+        c1.metric("Total Konstruksi", f"Rp {total_konstruksi:,.0f}")
+        c2.metric("Total SMKK", f"Rp {biaya_smkk:,.0f}")
         c3.metric("💰 GRAND TOTAL", f"Rp {grand_total:,.0f}")
         
-        st.warning(f"**TERBILANG:** *{terbilang(grand_total)} Rupiah*")
+        terbilang_teks = terbilang(grand_total) + " Rupiah"
+        st.warning(f"**Terbilang:** *{terbilang_teks}*")
         
         # EXPORT EXCEL PRINT
         st.divider()
         st.markdown("### 🖨️ Cetak & Unduh")
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            # 1. Rincian Volume & Total
-            df_fin.to_excel(writer, index=False, sheet_name='1_RAB_Utama')
-            
-            # 2. AHSP Terpakai Saja (Untuk Lampiran/Justifikasi Harga)
-            df_terpakai = df_fin[['Kode', 'Pekerjaan', 'Sat', 'Upah/Sat', 'Bahan/Sat', 'Alat/Sat', 'Harga/Sat']]
-            df_terpakai.to_excel(writer, index=False, sheet_name='2_Lampiran_Harga_Satuan')
-            
-            # 3. SMKK Detail
+            df_fin.to_excel(writer, index=False, sheet_name='1_RAB_Detail')
             pd.DataFrame({
-                "Uraian K3 (SMKK)": ["Dokumen RKK", "Sosialisasi & Promosi K3", "Alat Pelindung Diri (APD)", "Asuransi / BPJS Ketenagakerjaan", "Rambu & Perlengkapan Lalu Lintas"],
-                "Alokasi Dana": [biaya_smkk*0.05, biaya_smkk*0.1, biaya_smkk*0.5, biaya_smkk*0.2, biaya_smkk*0.15]
-            }).to_excel(writer, index=False, sheet_name='3_Analisa_SMKK')
-            
-            # 4. Summary & Terbilang
-            pd.DataFrame({
-                "Kategori": ["Total Biaya Konstruksi", "Total Biaya Keselamatan (SMKK)", "GRAND TOTAL PROYEK", "TERBILANG:"],
-                "Nilai": [f"Rp {total_konstruksi:,.0f}", f"Rp {biaya_smkk:,.0f}", f"Rp {grand_total:,.0f}", f"{terbilang(grand_total)} Rupiah"]
-            }).to_excel(writer, index=False, sheet_name='4_Summary_Print')
+                "Rangkuman": ["Total Biaya Konstruksi", "Total Biaya SMKK", "GRAND TOTAL", "TERBILANG:"],
+                "Nilai": [total_konstruksi, biaya_smkk, grand_total, terbilang_teks]
+            }).to_excel(writer, index=False, sheet_name='2_Summary')
             
         st.download_button(
-            "📥 Download RAB Lengkap untuk Di-print (Excel)", 
+            "📥 Download RAB Output (Excel)", 
             buffer.getvalue(), 
-            f"RAB_{nama_proyek}.xlsx", 
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+            "RAB_Output.xlsx", 
+            "application/vnd.ms-excel", 
             use_container_width=True, type="primary"
         )
     else:
-        st.info("RAB masih kosong. Silakan cari dan tambahkan pekerjaan di Tab Input RAB.")
+        st.info("Selesaikan pengisian RAB di Tab 1 untuk memunculkan Rangkuman dan Cetak Excel.")
