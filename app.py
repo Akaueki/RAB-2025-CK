@@ -29,13 +29,13 @@ st.divider()
 @st.cache_data
 def load_data():
     try:
-        df = pd.read_excel("RAB_AHSP_Lengkap_CiptaKarya_2025.xlsx", sheet_name="Daftar_AHSP", skiprows=2)
+        df = pd.read_excel("RAB_Cipta_Karya_2025.xlsx", sheet_name="Daftar_AHSP", skiprows=2)
         df = df.dropna(subset=['Kode AHSP', 'Uraian Pekerjaan'])
         # Membersihkan spasi pada kode
         df['Kode AHSP'] = df['Kode AHSP'].astype(str).str.strip()
         return df
     except:
-        st.error("File Database RAB_AHSP_Lengkap_CiptaKarya_2025.xlsx tidak ditemukan!")
+        st.error("File Database RAB_Cipta_Karya_2025.xlsx tidak ditemukan!")
         return pd.DataFrame()
 
 df_ahsp = load_data()
